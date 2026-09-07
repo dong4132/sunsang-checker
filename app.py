@@ -10,7 +10,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# 모바일 최적화 스타일
+# 모바일 최적화 및 카드형 UI 스타일링 CSS
 st.markdown("""
     <style>
         .stButton button {
@@ -19,14 +19,47 @@ st.markdown("""
             font-weight: bold;
             height: 48px;
         }
-        .stDataFrame {
-            font-size: 14px;
-        }
         div.stForm {
             background-color: #f8f9fa;
             padding: 15px;
             border-radius: 10px;
             border: 1px solid #e9ecef;
+        }
+        /* 카드형 디자인 스타일 */
+        .fish-card {
+            background-color: #ffffff;
+            padding: 16px;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            margin-bottom: 12px;
+        }
+        .ship-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #1e293b;
+            margin-bottom: 6px;
+        }
+        .ship-info {
+            font-size: 14px;
+            color: #475569;
+            margin-bottom: 4px;
+        }
+        .badge-seat {
+            background-color: #dbeafe;
+            color: #1d4ed8;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-weight: bold;
+            font-size: 13px;
+        }
+        .badge-price {
+            background-color: #f1f5f9;
+            color: #334155;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-weight: bold;
+            font-size: 13px;
         }
     </style>
 """, unsafe_allow_html=True)
@@ -34,10 +67,9 @@ st.markdown("""
 st.title("🎣 선상24 맞춤형 빈자리 조회기")
 st.markdown("원하는 날짜, 지역, 어종을 선택한 뒤 **[실시간 빈자리 검색하기]**를 눌러주세요.")
 
-# 2. 메인 화면 상단에 배치된 검색 조건 입력 폼
+# 2. 메인 화면 상단 검색 폼
 with st.form("search_form"):
     
-    # 원래 쓰시던 편한 달력 위젯 복구
     selected_date = st.date_input(
         "📅 출조 날짜 선택", 
         value=datetime.now().date()
@@ -103,7 +135,6 @@ with st.form("search_form"):
         selected_fish_label = st.selectbox("🐟 대상 어종 선택", list(fish_options.keys()))
         selected_fish = fish_options[selected_fish_label]
 
-    # 검색 버튼
     search_button = st.form_submit_button("🔍 실시간 빈자리 검색하기", type="primary")
 
 # 3. 검색 버튼을 눌렀을 때 실행되는 API 연동 로직
@@ -186,28 +217,39 @@ if search_button:
                         booking_link = "https://www.sunsang24.com"
 
                     parsed_list.append({
-                        "날짜": sdate,
                         "선박명": ship_name,
                         "지역": region_str,
                         "출항지": port_name,
                         "시간": time_str,
                         "어종": fish_type,
-                        "가격": f"{price:,}원" if isinstance(price, int) else price,
-                        "잔여석": f"{remain_seats}석",
-                        "예약": booking_link
+                        "가격": f"{price:,}원" if isinstance(price, int) else f"{price}원",
+                        "잔여석": remain_seats,
+                        "예약링크": booking_link
                     })
                 
-                df = pd.DataFrame(parsed_list)
-                
-                if not df.empty:
-                    st.dataframe(
-                        df, 
-                        use_container_width=True,
-                        column_config={
-                            "예약": st.column_config.LinkColumn("예약 바로가기", display_text="🔗 예약하기")
-                        }
-                    )
-                    st.success(f"총 {len(df)}개의 예약 가능한 빈자리를 찾았습니다!")
+                if parsed_list:
+                    st.success(f"총 {len(parsed_list)}개의 예약 가능한 빈자리를 찾았습니다!")
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    
+                    # 표 대신 카드 형식으로 예쁘게 렌더링
+                    for item in parsed_list:
+                        price_formatted = item["가격"]
+                        st.markdown(f"""
+                            <div class="fish-card">
+                                <div class="ship-title">🚢 {item["선박명"]}</div>
+                                <div class="ship-info">📍 <b>지역:</b> {item["지역"]} ({item["출항지"]})</div>
+                                <div class="ship-info">⏰ <b>출항시간:</b> {item["시간"]}</div>
+                                <div class="ship-info">🐟 <b>대상어종:</b> {item["어종"]}</div>
+                                <div style="margin-top: 10px; display: flex; gap: 8px; align-items: center;">
+                                    <span class="badge-seat">🔥 잔여석: {item["잔여석"]}석</span>
+                                    <span class="badge-price">💰 {price_formatted}</span>
+                                </div>
+                            </div>
+                        """, unsafe_allow_html=True)
+                        
+                        # 스트림릿 버튼으로 예약 링크 연결 (모바일에서 터치하기 큼직함)
+                        st.link_button(f"🔗 {item['선박명']} 예약하러 가기", item["예약링크"])
+                        st.markdown("<div style='margin-bottom: 15px;'></div>", unsafe_allow_html=True)
                 else:
                     st.warning("조건에 맞는 예약 가능한 빈자리가 없습니다.")
             else:
