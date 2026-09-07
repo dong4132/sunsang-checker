@@ -18,7 +18,6 @@ st.markdown("""
             font-size: 16px;
             font-weight: bold;
         }
-        /* 모바일 테이블 여백 및 가독성 개선 */
         .stDataFrame {
             font-size: 14px;
         }
@@ -34,7 +33,7 @@ st.sidebar.header("🔍 검색 조건 설정")
 # 날짜 선택
 selected_date = st.sidebar.date_input("출조 날짜 선택")
 
-# 지역 선택 옵션
+# 지역 선택 옵션 (군산 코드 493 반영)
 region_options = {
     "충남전체": {
         "area": "497,498,499,500,501", 
@@ -73,7 +72,7 @@ region_options = {
         "display_name": "충남 홍성"
     },
     "군산": {
-        "area": "601", 
+        "area": "493",  # 군산 고유 코드
         "area_text": "군산", 
         "area_type": "area",
         "display_name": "전북 군산"
@@ -188,7 +187,6 @@ if search_button:
                 df = pd.DataFrame(parsed_list)
                 
                 if not df.empty:
-                    # 스마트폰 화면에서 테이블이 잘리지 않도록 컬럼 이름과 폭 조정
                     st.dataframe(
                         df, 
                         use_container_width=True,
