@@ -2,8 +2,28 @@ import streamlit as st
 import pandas as pd
 import requests
 
-# 1. 웹 페이지 기본 설정
-st.set_page_config(page_title="내 맘대로 선상24 조회기", page_icon="🎣", layout="wide")
+# 1. 웹 페이지 기본 설정 (모바일 화면 최적화 포함)
+st.set_page_config(
+    page_title="선상24 빈자리 조회기", 
+    page_icon="🎣", 
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# 모바일에서 글자가 너무 크거나 깨지지 않도록 CSS 스타일 추가
+st.markdown("""
+    <style>
+        .stButton button {
+            width: 100%;
+            font-size: 16px;
+            font-weight: bold;
+        }
+        /* 모바일 테이블 여백 및 가독성 개선 */
+        .stDataFrame {
+            font-size: 14px;
+        }
+    </style>
+""", unsafe_allow_html=True)
 
 st.title("🎣 선상24 맞춤형 빈자리 조회기")
 st.markdown("원하는 날짜, 지역, 어종을 선택하면 **실시간 예약 가능한 빈자리**를 바로 보여줍니다.")
@@ -14,7 +34,7 @@ st.sidebar.header("🔍 검색 조건 설정")
 # 날짜 선택
 selected_date = st.sidebar.date_input("출조 날짜 선택")
 
-# 지역 선택 옵션 (군산 코드 493 반영)
+# 지역 선택 옵션
 region_options = {
     "충남전체": {
         "area": "497,498,499,500,501", 
@@ -53,7 +73,7 @@ region_options = {
         "display_name": "충남 홍성"
     },
     "군산": {
-        "area": "493", # 확인된 군산 고유 코드 반영
+        "area": "601", 
         "area_text": "군산", 
         "area_type": "area",
         "display_name": "전북 군산"
@@ -140,9 +160,9 @@ if search_button:
                     stime = raw_stime[:5] if len(raw_stime) >= 5 else raw_stime
                     etime = raw_etime[:5] if len(raw_etime) >= 5 else raw_etime
                     
-                    time_str = f"{stime} ~ {etime}" if (stime and etime) else "시간문의"
+                    time_str = f"{stime}~{etime}" if (stime and etime) else "시간문의"
                     
-                    # 예약 가능한 배들만 필터링
+                    # 잔여석이 없고 예약 불가인 경우 제외
                     if remain_seats <= 0 or status_name != "예약가능":
                         continue
 
@@ -154,26 +174,26 @@ if search_button:
                         booking_link = "https://www.sunsang24.com"
 
                     parsed_list.append({
-                        "출조일자": sdate,
+                        "날짜": sdate,
                         "선박명": ship_name,
                         "지역": region_str,
                         "출항지": port_name,
-                        "출항/입항시간": time_str,
-                        "대상어종": fish_type,
+                        "시간": time_str,
+                        "어종": fish_type,
                         "가격": f"{price:,}원" if isinstance(price, int) else price,
                         "잔여석": f"{remain_seats}석",
-                        "예약상태": status_name,
-                        "예약바로가기": booking_link
+                        "예약": booking_link
                     })
                 
                 df = pd.DataFrame(parsed_list)
                 
                 if not df.empty:
+                    # 스마트폰 화면에서 테이블이 잘리지 않도록 컬럼 이름과 폭 조정
                     st.dataframe(
                         df, 
                         use_container_width=True,
                         column_config={
-                            "예약바로가기": st.column_config.LinkColumn("예약 페이지 링크", display_text="🔗 예약하러 가기")
+                            "예약": st.column_config.LinkColumn("예약 바로가기", display_text="🔗 예약하기")
                         }
                     )
                     st.success(f"총 {len(df)}개의 예약 가능한 빈자리를 찾았습니다!")
