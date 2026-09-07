@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>선상24 가벼운 빈자리 조회기</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen p-4">
+    <div class="max-w-md mx-auto">
+        <header class="mb-6 text-center">
+            <h1 class="text-2xl font-bold text-slate-900">🎣 선상24 빈자리 조회기</h1>
+            <p class="text-sm text-slate-500 mt-1">로딩 없는 초가벼운 모바일 웹 버전</p>
+        </header>
+
+        <!-- 검색 폼 박스 -->
+        <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 mb-6">
+            <div class="mb-4">
+                <label class="block text-sm font-semibold text-slate-700 mb-1">📅 출조 날짜</label>
+                <input type="date" id="searchDate" class="w-full p-2.5 border border-slate-300 rounded-lg text-base bg-white">
+            </div>
+
+            <div class="grid grid-cols-2 gap-3 mb-4">
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-1">📍 지역</label>
+                    <select id="regionSelect" class="w-full p-2.5 border border-slate-300 rounded-lg text-base bg-white">
+                        <option value="497,498,499,500,501" data-text="충남" data-display="충남">충남전체</option>
+                        <option value="501" data-text="당진" data-display="충남 당진">당진</option>
+                        <option value="497" data-text="보령" data-display="충남 보령">보령</option>
+                        <option value="499" data-text="서산" data-display="충남 서산">서산</option>
+                        <option value="500" data-text="태안" data-display="충남 태안">태안</option>
+                        <option value="498" data-text="홍성" data-display="충남 홍성">홍성</option>
+                        <option value="493" data-text="군산" data-display="전북 군산">군산</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-1">🐟 어종</label>
+                    <select id="fishSelect" class="w-full p-2.5 border border-slate-300 rounded-lg text-base bg-white">
+                        <option value="">전체</option>
+                        <option value="갑오징어">갑오징어</option>
+                        <option value="주꾸미">주꾸미</option>
+                        <option value="문어">문어</option>
+                    </select>
+                </div>
+            </div>
+
+            <button onclick="fetchSunsang()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg text-base shadow transition">
+                🔍 실시간 빈자리 검색하기
+            </button>
+        </div>
+
+        <!-- 결과 영역 -->
+        <div id="loading" class="hidden text-center py-8 text-slate-500 font-medium">실시간 빈자리를 불러오는 중...</div>
+        <div id="resultSummary" class="mb-4 text-sm font-semibold text-slate-600"></div>
+        <div id="resultContainer" class="space-y-3"></div>
+    </div>
+
+    <script>
+        // 오늘 날짜 자동 세팅
+        document.getElementById('searchDate').valueAsDate = new Date();
+
+        async function fetchSunsang() {
+            const dateVal = document.getElementById('searchDate').value;
+            const regionEl = document.getElementById('regionSelect');
+            const selectedOption = regionEl.options[regionEl.selectedIndex];
+            
+            const area = selectedOption.value;
+            const areaText = selectedOption.getAttribute('data-text');
+            const displayNaem = selectedOption.getAttribute('data-display');
+            const isAllChungnam = (regionEl.selectedIndex === 0);
+            
+            const fish = document.getElementById('fishSelect').value;
+            
+            const container = document.getElementById('resultContainer');
+            const summary = document.getElementById('resultSummary');
+            const loading = document.getElementById('loading');
+            
+            container.innerHTML = '';
+            summary.innerHTML = '';
+            loading.classList.remove('hidden');
+
+            const dateStr = `${dateVal},${dateVal}`;
+            const targetUrl = `https://api.sunsang24.com/ship/list?page=1&type=general&sdate=${dateStr}&fish=${encodeURIComponent(fish)}&keyword=&area=${area}&area_text=${encodeURIComponent(areaText)}&area_type=area`;
+            
+            // 브라우저 CORS 우회를 위한 무료 프록시 활용
+            const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
+
+            try {
+                const response = await fetch(proxyUrl);
+                const json = await response.json();
+                
+                loading.classList.add('hidden');
+                
+                let items = json.data || json.list || json[0] || [];
+                if (!Array.isArray(items) && Array.isArray(json)) items = json;
+
+                let parsedList = [];
+                for (let item of items) {
+                    const ship = item.ship || {};
+                    const shipName = ship.name || '정보없음';
+                    const shipNo = ship.no || '';
+                    
+                    let regionStr = displayNaem;
+                    if (!isAllChungnam) {
+                        regionStr = `${ship.area_main || ''} ${ship.area_sub || ''}`.trim() || displayNaem;
+                    }
+
+                    const remainSeats = item.remain_embarkation_num || 0;
+                    const statusName = item.schedule_status_name || '';
+                    
+                    if (remainSeats <= 0 || statusName !== '예약가능') continue;
+
+                    const price = typeof item.price === 'number' ? item.price.toLocaleString() + '원' : (item.price || '문의');
+                    const stime = (item.stime || '').slice(0, 5);
+                    const etime = (item.etime || '').slice(0, 5);
+                    const timeStr = stime && etime ? `${stime}~${etime}` : '시간문의';
+                    
+                    const sdateClean = dateVal.replace(/-/g, '');
+                    const bookingLink = shipNo ? `https://www.sunsang24.com/ship/list/?ship_no=${shipNo}&sdate=${sdateClean}` : 'https://www.sunsang24.com';
+
+                    parsedList.push({
+                        name: shipName,
+                        region: regionStr,
+                        port: item.port_name || '정보없음',
+                        time: timeStr,
+                        fish: item.fish_type || '정보없음',
+                        price: price,
+                        seats: remainSeats,
+                        link: bookingLink
+                    });
+                }
+
+                if (parsedList.length > 0) {
+                    summary.innerHTML = `📌 총 ${parsedList.length}개의 빈자리를 찾았습니다.`;
+                    let html = '';
+                    for (let item of parsedList) {
+                        html += `
+                            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                                <div class="text-base font-bold text-slate-900 mb-1">🚢 ${item.name}</div>
+                                <div class="text-xs text-slate-600 mb-1">📍 지역: ${item.region} (${item.port})</div>
+                                <div class="text-xs text-slate-600 mb-1">⏰ 시간: ${item.time}</div>
+                                <div class="text-xs text-slate-600 mb-2">🐟 어종: ${item.fish}</div>
+                                <div class="flex items-center justify-between mt-3 pt-3 border-t border-slate-100">
+                                    <div class="flex gap-2">
+                                        <span class="bg-blue-50 text-blue-700 text-xs font-bold px-2.5 py-1 rounded-md">🔥 잔여석: ${item.seats}석</span>
+                                        <span class="bg-slate-100 text-slate-700 text-xs font-bold px-2.5 py-1 rounded-md">💰 ${item.price}</span>
+                                    </div>
+                                    <a href="${item.link}" target="_blank" class="bg-slate-900 text-white text-xs font-bold px-3 py-2 rounded-lg hover:bg-slate-800 transition">예약하기</a>
+                                </div>
+                            </div>
+                        `;
+                    }
+                    container.innerHTML = html;
+                } else {
+                    summary.innerHTML = '⚠️ 검색 결과';
+                    container.innerHTML = `<div class="bg-white p-6 rounded-xl text-center text-slate-500 text-sm border border-slate-200">조건에 맞는 예약 가능한 빈자리가 없습니다.</div>`;
+                }
+
+            } catch (err) {
+                loading.classList.add('hidden');
+                container.innerHTML = `<div class="bg-red-50 p-4 rounded-xl text-center text-red-600 text-sm border border-red-200">데이터를 불러오는 중 오류가 발생했습니다.</div>`;
+            }
+        }
+    </script>
+</body>
+</html>
