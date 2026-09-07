@@ -3,14 +3,14 @@ import pandas as pd
 import requests
 from datetime import datetime, timedelta
 
-# 1. 웹 페이지 기본 설정 (모바일 화면 최적화 포함)
+# 1. 웹 페이지 기본 설정
 st.set_page_config(
     page_title="선상24 빈자리 조회기", 
     page_icon="🎣", 
     layout="wide"
 )
 
-# 모바일 화면 최적화 및 폼 스타일링 CSS
+# 모바일 최적화 및 폼 스타일링 CSS (키보드 방지용 레이아웃 조정)
 st.markdown("""
     <style>
         .stButton button {
@@ -34,15 +34,44 @@ st.markdown("""
 st.title("🎣 선상24 맞춤형 빈자리 조회기")
 st.markdown("원하는 날짜, 지역, 어종을 선택한 뒤 **[실시간 빈자리 검색하기]**를 눌러주세요.")
 
+# 세션 상태를 이용해 날짜 관리 (키보드가 아예 필요 없는 버튼식 선택 구현)
+if 'selected_date' not in st.session_state:
+    st.session_state.selected_date = datetime.now().date()
+
 # 2. 메인 화면 상단에 배치된 검색 조건 입력 폼
 with st.form("search_form"):
     
-    # [편의 기능] 오늘 / 내일 빠른 선택을 위한 세션 상태 초기화 및 버튼 처리
-    # 스마트폰 키보드가 뜨는 것을 원천 차단하기 위해 Streamlit 기본 date_input 사용
-    selected_date = st.date_input(
-        "📅 출조 날짜 선택 (터치하면 달력이 열립니다)", 
-        value=datetime.now().date()
-    )
+    st.markdown("📅 **출조 날짜 선택** (버튼을 눌러 날짜를 변경하세요. 키보드가 뜨지 않습니다!)")
+    
+    # 키보드를 유발하는 입력창 대신, 모바일 터치에 최적화된 날짜 빠른 이동 버튼들
+    d_col1, d_col2, d_col3, d_col4, d_col5 = st.columns(5)
+    
+    # 폼 내부에서 버튼 상태를 안전하게 처리하기 위해 콜백 대신 값 표시 활용
+    # 현재 선택된 날짜 안내 텍스트
+    st.info(f"선택된 출조일: **{st.session_state.selected_date}**")
+    
+    # 날짜를 하루씩 조절할 수 있는 버튼 그룹
+    c_btn1, c_btn2, c_btn3, c_btn4 = st.columns(4)
+    with c_btn1:
+        btn_today = st.form_submit_button("오늘")
+    with c_btn2:
+        btn_tomorrow = st.form_submit_button("내일")
+    with c_btn3:
+        btn_next = st.form_submit_button("➕ 1일 뒤")
+    with c_btn4:
+        btn_prev = st.form_submit_button("➖ 1일 전")
+        
+    # 버튼 클릭에 따른 날짜 변경 로직 반영
+    if btn_today:
+        st.session_state.selected_date = datetime.now().date()
+    elif btn_tomorrow:
+        st.session_state.selected_date = datetime.now().date() + timedelta(days=1)
+    elif btn_next:
+        st.session_state.selected_date += timedelta(days=1)
+    elif btn_prev:
+        st.session_state.selected_date -= timedelta(days=1)
+
+    st.markdown("---")
     
     col1, col2 = st.columns(2)
     
@@ -104,15 +133,16 @@ with st.form("search_form"):
         selected_fish_label = st.selectbox("🐟 대상 어종 선택", list(fish_options.keys()))
         selected_fish = fish_options[selected_fish_label]
 
-    # 검색 버튼
+    # 최종 검색 실행 버튼
     search_button = st.form_submit_button("🔍 실시간 빈자리 검색하기", type="primary")
 
 # 3. 검색 버튼을 눌렀을 때 실행되는 API 연동 로직
 if search_button:
-    date_str = f"{selected_date},{selected_date}"
+    current_date = st.session_state.selected_date
+    date_str = f"{current_date},{current_date}"
     
     st.markdown("---")
-    st.subheader(f"📌 검색 결과 ({selected_date} / {selected_region_label})")
+    st.subheader(f"📌 검색 결과 ({current_date} / {selected_region_label})")
     
     with st.spinner("선상24 실시간 빈자리를 확인하는 중입니다..."):
         try:
@@ -165,7 +195,7 @@ if search_button:
                     price = item.get("price", 0)
                     remain_seats = item.get("remain_embarkation_num", 0)
                     status_name = item.get("schedule_status_name", "확인필요")
-                    sdate = item.get("sdate", str(selected_date))
+                    sdate = item.get("sdate", str(current_date))
                     
                     # 출항/입항 시간 가공
                     raw_stime = item.get("stime", "")
