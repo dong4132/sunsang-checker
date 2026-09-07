@@ -6,98 +6,108 @@ import requests
 st.set_page_config(
     page_title="선상24 빈자리 조회기", 
     page_icon="🎣", 
-    layout="wide",
-    initial_sidebar_state="expanded"
+    layout="wide"
 )
 
-# 모바일에서 글자가 너무 크거나 깨지지 않도록 CSS 스타일 추가
+# 모바일에서 버튼과 입력 폼이 시원시원하게 보이도록 CSS 스타일 추가
 st.markdown("""
     <style>
         .stButton button {
             width: 100%;
             font-size: 16px;
             font-weight: bold;
+            height: 48px;
         }
         .stDataFrame {
             font-size: 14px;
+        }
+        /* 상단 입력 영역을 깔끔한 박스처럼 보이게 꾸미기 */
+        div.stForm {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid #e9ecef;
         }
     </style>
 """, unsafe_allow_html=True)
 
 st.title("🎣 선상24 맞춤형 빈자리 조회기")
-st.markdown("원하는 날짜, 지역, 어종을 선택하면 **실시간 예약 가능한 빈자리**를 바로 보여줍니다.")
+st.markdown("원하는 날짜, 지역, 어종을 선택한 뒤 **[빈자리 검색하기]**를 눌러주세요.")
 
-# 2. 사이드바 사용자 입력 폼 (필터 조건)
-st.sidebar.header("🔍 검색 조건 설정")
+# 2. 메인 화면 상단에 배치된 검색 조건 입력 폼 (st.form을 써서 한 번에 입력 후 검색 가능)
+with st.form("search_form"):
+    # 모바일 화면을 고려해 컬럼을 1개 또는 3개로 유연하게 배치
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        selected_date = st.date_input("📅 출조 날짜 선택")
+        
+    with col2:
+        region_options = {
+            "충남전체": {
+                "area": "497,498,499,500,501", 
+                "area_text": "충남", 
+                "area_type": "area",
+                "display_name": "충남"
+            },
+            "당진": {
+                "area": "501", 
+                "area_text": "당진", 
+                "area_type": "area",
+                "display_name": "충남 당진"
+            },
+            "보령": {
+                "area": "497", 
+                "area_text": "보령", 
+                "area_type": "area",
+                "display_name": "충남 보령"
+            },
+            "서산": {
+                "area": "499", 
+                "area_text": "서산", 
+                "area_type": "area",
+                "display_name": "충남 서산"
+            },
+            "태안": {
+                "area": "500", 
+                "area_text": "태안", 
+                "area_type": "area",
+                "display_name": "충남 태안"
+            },
+            "홍성": {
+                "area": "498", 
+                "area_text": "홍성", 
+                "area_type": "area",
+                "display_name": "충남 홍성"
+            },
+            "군산": {
+                "area": "493", 
+                "area_text": "군산", 
+                "area_type": "area",
+                "display_name": "전북 군산"
+            }
+        }
+        selected_region_label = st.selectbox("📍 지역 선택", list(region_options.keys()))
+        region_info = region_options[selected_region_label]
 
-# 날짜 선택
-selected_date = st.sidebar.date_input("출조 날짜 선택")
+    with col3:
+        fish_options = {
+            "전체": "", 
+            "갑오징어": "갑오징어", 
+            "주꾸미": "주꾸미", 
+            "문어": "문어"
+        }
+        selected_fish_label = st.selectbox("🐟 대상 어종 선택", list(fish_options.keys()))
+        selected_fish = fish_options[selected_fish_label]
 
-# 지역 선택 옵션 (군산 코드 493 반영)
-region_options = {
-    "충남전체": {
-        "area": "497,498,499,500,501", 
-        "area_text": "충남", 
-        "area_type": "area",
-        "display_name": "충남"
-    },
-    "당진": {
-        "area": "501", 
-        "area_text": "당진", 
-        "area_type": "area",
-        "display_name": "충남 당진"
-    },
-    "보령": {
-        "area": "497", 
-        "area_text": "보령", 
-        "area_type": "area",
-        "display_name": "충남 보령"
-    },
-    "서산": {
-        "area": "499", 
-        "area_text": "서산", 
-        "area_type": "area",
-        "display_name": "충남 서산"
-    },
-    "태안": {
-        "area": "500", 
-        "area_text": "태안", 
-        "area_type": "area",
-        "display_name": "충남 태안"
-    },
-    "홍성": {
-        "area": "498", 
-        "area_text": "홍성", 
-        "area_type": "area",
-        "display_name": "충남 홍성"
-    },
-    "군산": {
-        "area": "493",  # 군산 고유 코드
-        "area_text": "군산", 
-        "area_type": "area",
-        "display_name": "전북 군산"
-    }
-}
-
-selected_region_label = st.sidebar.selectbox("지역 선택", list(region_options.keys()))
-region_info = region_options[selected_region_label]
-
-# 어종 선택 (갑오징어, 주꾸미, 문어)
-fish_options = {
-    "전체": "", 
-    "갑오징어": "갑오징어", 
-    "주꾸미": "주꾸미", 
-    "문어": "문어"
-}
-selected_fish_label = st.sidebar.selectbox("대상 어종 선택", list(fish_options.keys()))
-selected_fish = fish_options[selected_fish_label]
-
-search_button = st.sidebar.button("🔍 빈자리 검색하기", type="primary")
+    # 검색 버튼 (폼 안에 있어서 엔터나 터치로 바로 실행됨)
+    search_button = st.form_submit_button("🔍 실시간 빈자리 검색하기", type="primary")
 
 # 3. 검색 버튼을 눌렀을 때 실행되는 API 연동 로직
 if search_button:
     date_str = f"{selected_date},{selected_date}"
     
+    st.markdown("---")
     st.subheader(f"📌 검색 결과 ({selected_date} / {selected_region_label})")
     
     with st.spinner("선상24 실시간 빈자리를 확인하는 중입니다..."):
@@ -202,5 +212,3 @@ if search_button:
                 
         except Exception as e:
             st.error(f"오류가 발생했습니다: {e}")
-else:
-    st.info("좌측 사이드바에서 날짜, 지역, 어종을 선택한 뒤 **[검색하기]** 버튼을 눌러주세요.")
