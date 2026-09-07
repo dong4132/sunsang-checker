@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import requests
+from datetime import datetime, timedelta
 
 # 1. 웹 페이지 기본 설정 (모바일 화면 최적화 포함)
 st.set_page_config(
@@ -9,7 +10,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# 모바일에서 버튼과 입력 폼이 시원시원하게 보이도록 CSS 스타일 추가
+# 모바일 화면 최적화 및 폼 스타일링 CSS
 st.markdown("""
     <style>
         .stButton button {
@@ -21,7 +22,6 @@ st.markdown("""
         .stDataFrame {
             font-size: 14px;
         }
-        /* 상단 입력 영역을 깔끔한 박스처럼 보이게 꾸미기 */
         div.stForm {
             background-color: #f8f9fa;
             padding: 15px;
@@ -32,17 +32,21 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.title("🎣 선상24 맞춤형 빈자리 조회기")
-st.markdown("원하는 날짜, 지역, 어종을 선택한 뒤 **[빈자리 검색하기]**를 눌러주세요.")
+st.markdown("원하는 날짜, 지역, 어종을 선택한 뒤 **[실시간 빈자리 검색하기]**를 눌러주세요.")
 
-# 2. 메인 화면 상단에 배치된 검색 조건 입력 폼 (st.form을 써서 한 번에 입력 후 검색 가능)
+# 2. 메인 화면 상단에 배치된 검색 조건 입력 폼
 with st.form("search_form"):
-    # 모바일 화면을 고려해 컬럼을 1개 또는 3개로 유연하게 배치
-    col1, col2, col3 = st.columns(3)
+    
+    # [편의 기능] 오늘 / 내일 빠른 선택을 위한 세션 상태 초기화 및 버튼 처리
+    # 스마트폰 키보드가 뜨는 것을 원천 차단하기 위해 Streamlit 기본 date_input 사용
+    selected_date = st.date_input(
+        "📅 출조 날짜 선택 (터치하면 달력이 열립니다)", 
+        value=datetime.now().date()
+    )
+    
+    col1, col2 = st.columns(2)
     
     with col1:
-        selected_date = st.date_input("📅 출조 날짜 선택")
-        
-    with col2:
         region_options = {
             "충남전체": {
                 "area": "497,498,499,500,501", 
@@ -90,7 +94,7 @@ with st.form("search_form"):
         selected_region_label = st.selectbox("📍 지역 선택", list(region_options.keys()))
         region_info = region_options[selected_region_label]
 
-    with col3:
+    with col2:
         fish_options = {
             "전체": "", 
             "갑오징어": "갑오징어", 
@@ -100,7 +104,7 @@ with st.form("search_form"):
         selected_fish_label = st.selectbox("🐟 대상 어종 선택", list(fish_options.keys()))
         selected_fish = fish_options[selected_fish_label]
 
-    # 검색 버튼 (폼 안에 있어서 엔터나 터치로 바로 실행됨)
+    # 검색 버튼
     search_button = st.form_submit_button("🔍 실시간 빈자리 검색하기", type="primary")
 
 # 3. 검색 버튼을 눌렀을 때 실행되는 API 연동 로직
