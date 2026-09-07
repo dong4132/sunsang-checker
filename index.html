@@ -82,8 +82,8 @@
             const dateStr = `${dateVal},${dateVal}`;
             const targetUrl = `https://api.sunsang24.com/ship/list?page=1&type=general&sdate=${dateStr}&fish=${encodeURIComponent(fish)}&keyword=&area=${area}&area_text=${encodeURIComponent(areaText)}&area_type=area`;
             
-            // 브라우저 CORS 우회를 위한 무료 프록시 활용
-            const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
+            // 더 안정적인 CORS 프록시 주소로 교체
+            const proxyUrl = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`;
 
             try {
                 const response = await fetch(proxyUrl);
