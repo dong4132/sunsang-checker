@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import requests
-from datetime import datetime, timedelta
+from datetime import datetime, date
 
 # 1. 웹 페이지 기본 설정
 st.set_page_config(
@@ -32,44 +32,33 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.title("🎣 선상24 맞춤형 빈자리 조회기")
-st.markdown("원하는 날짜를 터치하고 **[실시간 빈자리 검색하기]**를 눌러주세요.")
-
-# 세션 상태에 날짜 초기화 (기본값: 오늘)
-if 'target_date' not in st.session_state:
-    st.session_state.target_date = datetime.now().date()
+st.markdown("원하는 날짜와 지역을 선택한 뒤 **[실시간 빈자리 검색하기]**를 눌러주세요.")
 
 # 2. 메인 화면 상단 검색 폼
 with st.form("search_form"):
     
-    st.markdown("📅 **출조 날짜 선택 (키보드 없음, 터치로 즉시 변경)**")
+    st.markdown("📅 **출조 날짜 선택 (키보드 없음 / 터치로 톡톡 선택)**")
     
-    # 날짜를 빠르게 이동할 수 있는 전용 버튼들 (오늘, 내일, 모레, +3일, +7일)
-    d_btn1, d_btn2, d_btn3, d_btn4, d_btn5 = st.columns(5)
-    with d_btn1:
-        p_today = st.form_submit_button("오늘")
-    with d_btn2:
-        p_tom = st.form_submit_button("내일")
-    with d_btn3:
-        p_plus2 = st.form_submit_button("+2일뒤")
-    with d_btn4:
-        p_plus3 = st.form_submit_button("+3일뒤")
-    with d_btn5:
-        p_plus7 = st.form_submit_button("+1주일")
-
-    # 버튼 클릭에 따른 날짜 계산
-    if p_today:
-        st.session_state.target_date = datetime.now().date()
-    elif p_tom:
-        st.session_state.target_date = datetime.now().date() + timedelta(days=1)
-    elif p_plus2:
-        st.session_state.target_date = datetime.now().date() + timedelta(days=2)
-    elif p_plus3:
-        st.session_state.target_date = datetime.now().date() + timedelta(days=3)
-    elif p_plus7:
-        st.session_state.target_date = datetime.now().date() + timedelta(days=7)
-
-    # 현재 선택된 날짜 큼직하게 표시
-    st.success(f"🎯 선택된 출조일: **{st.session_state.target_date}**")
+    # 오늘 기준 연, 월, 일 리스트 생성 (올해 및 내년까지)
+    today = datetime.now().date()
+    years = [today.year, today.year + 1]
+    months = list(range(1, 13))
+    days = list(range(1, 32))
+    
+    y_col, m_col, d_col = st.columns(3)
+    with y_col:
+        sel_year = st.selectbox("년도", years, index=0)
+    with m_col:
+        sel_month = st.selectbox("월", months, index=today.month - 1)
+    with d_col:
+        sel_day = st.selectbox("일", days, index=today.day - 1)
+        
+    # 날짜 유효성 검증 (예: 2월 30일 같은 잘못된 날짜 선택 시 오늘날짜나 말일로 보정)
+    try:
+        target_date = date(sel_year, sel_month, sel_day)
+    except ValueError:
+        target_date = today
+        st.warning("⚠️ 존재하지 않는 날짜입니다. 오늘 날짜로 자동 설정됩니다.")
 
     st.markdown("---")
     
@@ -138,11 +127,10 @@ with st.form("search_form"):
 
 # 3. 검색 버튼을 눌렀을 때 실행되는 API 연동 로직
 if search_button:
-    current_date = st.session_state.target_date
-    date_str = f"{current_date},{current_date}"
+    date_str = f"{target_date},{target_date}"
     
     st.markdown("---")
-    st.subheader(f"📌 검색 결과 ({current_date} / {selected_region_label})")
+    st.subheader(f"📌 검색 결과 ({target_date} / {selected_region_label})")
     
     with st.spinner("선상24 실시간 빈자리를 확인하는 중입니다..."):
         try:
@@ -186,7 +174,7 @@ if search_button:
                     if selected_region_label == "충남전체":
                         region_str = region_info["display_name"]
                     else:
-                        region_str = f"{area_main} {area_sub}".strict if hasattr(str, 'strict') else f"{area_main} {area_sub}".strip()
+                        region_str = f"{area_main} {area_sub}".strip()
                         if not region_str:
                             region_str = region_info["display_name"]
                     
@@ -195,7 +183,7 @@ if search_button:
                     price = item.get("price", 0)
                     remain_seats = item.get("remain_embarkation_num", 0)
                     status_name = item.get("schedule_status_name", "확인필요")
-                    sdate = item.get("sdate", str(current_date))
+                    sdate = item.get("sdate", str(target_date))
                     
                     # 출항/입항 시간 가공
                     raw_stime = item.get("stime", "")
