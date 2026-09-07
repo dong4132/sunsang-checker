@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import requests
-from datetime import datetime, date
+from datetime import datetime
 
 # 1. 웹 페이지 기본 설정
 st.set_page_config(
@@ -17,7 +17,7 @@ st.markdown("""
             width: 100%;
             font-size: 16px;
             font-weight: bold;
-            height: 46px;
+            height: 48px;
         }
         .stDataFrame {
             font-size: 14px;
@@ -32,35 +32,16 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.title("🎣 선상24 맞춤형 빈자리 조회기")
-st.markdown("원하는 날짜와 지역을 선택한 뒤 **[실시간 빈자리 검색하기]**를 눌러주세요.")
+st.markdown("원하는 날짜, 지역, 어종을 선택한 뒤 **[실시간 빈자리 검색하기]**를 눌러주세요.")
 
-# 2. 메인 화면 상단 검색 폼
+# 2. 메인 화면 상단에 배치된 검색 조건 입력 폼
 with st.form("search_form"):
     
-    st.markdown("📅 **출조 날짜 선택 (키보드 없음 / 터치로 톡톡 선택)**")
-    
-    # 오늘 기준 연, 월, 일 리스트 생성 (올해 및 내년까지)
-    today = datetime.now().date()
-    years = [today.year, today.year + 1]
-    months = list(range(1, 13))
-    days = list(range(1, 32))
-    
-    y_col, m_col, d_col = st.columns(3)
-    with y_col:
-        sel_year = st.selectbox("년도", years, index=0)
-    with m_col:
-        sel_month = st.selectbox("월", months, index=today.month - 1)
-    with d_col:
-        sel_day = st.selectbox("일", days, index=today.day - 1)
-        
-    # 날짜 유효성 검증 (예: 2월 30일 같은 잘못된 날짜 선택 시 오늘날짜나 말일로 보정)
-    try:
-        target_date = date(sel_year, sel_month, sel_day)
-    except ValueError:
-        target_date = today
-        st.warning("⚠️ 존재하지 않는 날짜입니다. 오늘 날짜로 자동 설정됩니다.")
-
-    st.markdown("---")
+    # 원래 쓰시던 편한 달력 위젯 복구
+    selected_date = st.date_input(
+        "📅 출조 날짜 선택", 
+        value=datetime.now().date()
+    )
     
     col1, col2 = st.columns(2)
     
@@ -122,15 +103,15 @@ with st.form("search_form"):
         selected_fish_label = st.selectbox("🐟 대상 어종 선택", list(fish_options.keys()))
         selected_fish = fish_options[selected_fish_label]
 
-    # 최종 검색 버튼
+    # 검색 버튼
     search_button = st.form_submit_button("🔍 실시간 빈자리 검색하기", type="primary")
 
 # 3. 검색 버튼을 눌렀을 때 실행되는 API 연동 로직
 if search_button:
-    date_str = f"{target_date},{target_date}"
+    date_str = f"{selected_date},{selected_date}"
     
     st.markdown("---")
-    st.subheader(f"📌 검색 결과 ({target_date} / {selected_region_label})")
+    st.subheader(f"📌 검색 결과 ({selected_date} / {selected_region_label})")
     
     with st.spinner("선상24 실시간 빈자리를 확인하는 중입니다..."):
         try:
@@ -183,7 +164,7 @@ if search_button:
                     price = item.get("price", 0)
                     remain_seats = item.get("remain_embarkation_num", 0)
                     status_name = item.get("schedule_status_name", "확인필요")
-                    sdate = item.get("sdate", str(target_date))
+                    sdate = item.get("sdate", str(selected_date))
                     
                     # 출항/입항 시간 가공
                     raw_stime = item.get("stime", "")
